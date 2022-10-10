@@ -5,6 +5,8 @@ Project > Information on project and required libraries
 
 CG1111A > Arduino Code for mbot
 
+mbot Firmware: https://github.com/Makeblock-official/Makeblock-Libraries/blob/master/examples/Firmware_For_mBlock/mbot_factory_firmware/mbot_factory_firmware.ino
+
 
 Instructions:
   1. Install CH341SER from the ZIP
