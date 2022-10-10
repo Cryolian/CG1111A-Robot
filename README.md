@@ -4,3 +4,8 @@
 Project > Information on project and required libraries
 
 CG1111A > Arduino Code for mbot
+
+
+Instructions:
+  1. Install CH341SER from the ZIP
+  2. Link Makeblock-Libraries-master.zip to Arduino
