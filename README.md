@@ -11,3 +11,10 @@ mbot Firmware: https://github.com/Makeblock-official/Makeblock-Libraries/blob/ma
 Instructions:
   1. Install CH341SER from the ZIP
   2. Link Makeblock-Libraries-master.zip to Arduino
+
+
+Line sensor stuff
+0: not on line
+1: right on line
+2: left on line
+3: all on line
