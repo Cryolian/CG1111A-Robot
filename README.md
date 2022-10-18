@@ -15,6 +15,11 @@ Instructions:
 
 Line sensor stuff
 0: not on line
+
 1: right on line
+
 2: left on line
+
 3: all on line
+
+
