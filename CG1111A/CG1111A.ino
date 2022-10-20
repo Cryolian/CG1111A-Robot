@@ -11,9 +11,11 @@
 //Value Definitions
 #define SPEED_OF_SOUND 345
 #define TURNING_TIME_MS 330 // The time duration (ms) for turning
-#define LDR_WAIT 15
+#define LDR_WAIT 10
+#define IR_WAIT 10
 #define CORRECT_TIMES 2
 #define RGB_TIME 200
+#define BASELINE_AMBIENT_IR 950
 
 
 MeBuzzer buzzer; // create the buzzer object
@@ -23,7 +25,7 @@ MeRGBLed led(0, 30); // Based on hardware connections on mCore; cannot change
 MeLineFollower lineFinder(PORT_2);
 
 
-uint8_t motorSpeed = 255;
+uint8_t motorSpeed = 255 / 2;
 // Setting motor speed to an integer between 1 and 255
 // The larger the number, the faster the speed
 
@@ -32,11 +34,26 @@ int red = 0;
 int green = 0;
 int blue = 0;
 
-float colourArray[] = {0, 0, 0};
-float whiteArray[] = {0, 0, 0};
-float blackArray[] = {0, 0, 0};
-float greyDiff[] = {0, 0, 0};
-char colourStr[3][5] = {"R = ", "G = ", "B = "};
+int colourArray[] = {0, 0, 0};
+
+//credit to Dr Henry for this function
+int get_LDR_avg_reading(int times) {
+  int total = 0;
+  for (int i = 0; i < times; i += 1) {
+    total += analogRead(LDR_PIN);
+    delay(LDR_WAIT);
+  }
+  return total / times;
+}
+
+int get_IR_avg_reading(int times) {
+  int total = 0;
+  for (int i = 0; i < times; i += 1) {
+    total += analogRead(IR_RECEIVER_PIN);
+    delay(IR_WAIT);
+  }
+  return total / times;
+}
 
 void stop_motor() {
   leftMotor.stop();
@@ -168,10 +185,11 @@ void shine_red(int time) {
   analogWrite(DECODER_A, 255);
   analogWrite(DECODER_B, 255);
   delay(time);
+  int reading = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
   Serial.print("Red: ");
-  Serial.println(analogRead(LDR_PIN));
+  Serial.println(reading);
   delay(LDR_WAIT);
 }
 
@@ -179,10 +197,11 @@ void shine_green(int time) {
   analogWrite(DECODER_A, 255);
   analogWrite(DECODER_B, 0);
   delay(time);
+  int reading = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
   Serial.print("Green: ");
-  Serial.println(analogRead(LDR_PIN));
+  Serial.println(reading);
   delay(LDR_WAIT);
 }
 
@@ -190,11 +209,42 @@ void shine_blue(int time) {
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 255);
   delay(time);
+  int reading = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
   Serial.print("Blue: ");
-  Serial.println(analogRead(LDR_PIN));
+  Serial.println(reading);
   delay(LDR_WAIT);
+}
+
+void ir_read() {
+
+  stop_motor();
+  analogWrite(DECODER_A, 0);
+  analogWrite(DECODER_B, 255);
+
+  delay(IR_WAIT);
+
+  int ambient = analogRead(IR_RECEIVER_PIN);
+  Serial.print("ambient: ");
+  Serial.println(ambient);
+
+  analogWrite(DECODER_A, LOW);
+  analogWrite(DECODER_B, LOW);
+
+  delay(IR_WAIT);
+
+  int reading = analogRead(IR_RECEIVER_PIN);
+  Serial.print("reading: ");
+  Serial.println(reading);
+
+  Serial.print("difference: ");
+  Serial.println(ambient - reading);
+
+  analogWrite(DECODER_A, 0);
+  analogWrite(DECODER_B, 255);
+
+
 }
 
 void setup() {
@@ -206,28 +256,31 @@ void setup() {
   pinMode(DECODER_B, OUTPUT);
   pinMode(IR_RECEIVER_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
+  analogWrite(DECODER_A, 0);
+  analogWrite(DECODER_B, 0);
+
 }
 
 void loop() {
 
-  shine_red(RGB_TIME);
-  shine_green(RGB_TIME);
-  shine_blue(RGB_TIME);
-  //    Serial.println(analogRead(IR_RECEIVER_PIN));
-//  Serial.println(analogRead(LDR_PIN));
+  ir_read();
   delay(500);
 
-  //  sensorState = lineFinder.readSensors();
+  //                 int sensorState = lineFinder.readSensors();
+  //                 Serial.print("Sensor State: ");
+  //                 Serial.println(sensorState);
   //
-  //  if (status == 1) {
-  //    int sensorState = lineFinder.readSensors(); //read sensor state
+  //  if (sensorState == 3) {
+  //  stop_motor();
   //
+  //    shine_red(RGB_TIME);
+  //    shine_green(RGB_TIME);
+  //    shine_blue(RGB_TIME);
+  //    delay(500);
+  //  }
   //
-  //    Serial.println(sensorState); //3 if both meeting line
-  //    delay(20); // decision making interval (in milliseconds)
+  //  else {
+  //    go_forward();
   //  }
 
-  //  Serial.println(analogRead(IR_RECEIVER));
-  //  delay(1000);
-  //  reverse(300);
 }
