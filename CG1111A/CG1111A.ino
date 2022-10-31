@@ -10,13 +10,19 @@
 
 //Value Definitions
 #define SPEED_OF_SOUND 345
-#define TURNING_TIME_MS 330 // The time duration (ms) for turning
+#define TURNING_TIME 700 // The time duration (ms) for turning
+#define FORWARD_TIME 500
 #define LDR_WAIT 10
-#define IR_WAIT 10
+#define IR_WAIT 15
 #define CORRECT_TIMES 2
 #define RGB_TIME 200
 #define BASELINE_AMBIENT_IR 950
-
+#define RED 1
+#define GREEN 2
+#define ORANGE 3
+#define PURPLE 4
+#define LIGHT_BLUE 5
+#define WHITE 6
 
 MeBuzzer buzzer; // create the buzzer object
 MeDCMotor leftMotor(M1); // assigning leftMotor to port M1
@@ -24,21 +30,22 @@ MeDCMotor rightMotor(M2); // assigning RightMotor to port M2
 MeRGBLed led(0, 30); // Based on hardware connections on mCore; cannot change
 MeLineFollower lineFinder(PORT_2);
 
-
-uint8_t motorSpeed = 255 / 2;
 // Setting motor speed to an integer between 1 and 255
 // The larger the number, the faster the speed
-
+uint8_t motorSpeed = 255 / 2;
 int status = 0;
-int red = 0;
-int green = 0;
-int blue = 0;
 
-int colourArray[] = {0, 0, 0};
+long colour_array[3] = {0};
+
+//find lab values
+long black_array[] = {959, 800, 911};
+long white_array[] = {984, 964, 989};
+long diff_array[] = {25, 164, 78};
+long rgb_array[3] = {0};
 
 //credit to Dr Henry for this function
-int get_LDR_avg_reading(int times) {
-  int total = 0;
+long get_LDR_avg_reading(int times) {
+  long total = 0;
   for (int i = 0; i < times; i += 1) {
     total += analogRead(LDR_PIN);
     delay(LDR_WAIT);
@@ -46,8 +53,8 @@ int get_LDR_avg_reading(int times) {
   return total / times;
 }
 
-int get_IR_avg_reading(int times) {
-  int total = 0;
+long get_IR_avg_reading(int times) {
+  long total = 0;
   for (int i = 0; i < times; i += 1) {
     total += analogRead(IR_RECEIVER_PIN);
     delay(IR_WAIT);
@@ -174,50 +181,165 @@ void adjust_angle(float difference) {
 }
 
 void correct_path() {
-  for (int i = 0; i < CORRECT_TIMES; i += 1) {
-    adjust_angle(0.00);
-    reverse(200);
-    delay(1000);
+  if (distance_left() < 10) {
+
+    for (int i = 0; i < CORRECT_TIMES; i += 1) {
+
+      adjust_angle(0.00);
+      reverse(200);
+      delay(1000);
+    }
   }
 }
 
-void shine_red(int time) {
+void shine_red() {
   analogWrite(DECODER_A, 255);
   analogWrite(DECODER_B, 255);
-  delay(time);
-  int reading = get_LDR_avg_reading(5);
+  delay(RGB_TIME);
+  colour_array[0] = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
   Serial.print("Red: ");
-  Serial.println(reading);
+  Serial.println(colour_array[0]);
   delay(LDR_WAIT);
 }
 
-void shine_green(int time) {
+void shine_green() {
   analogWrite(DECODER_A, 255);
   analogWrite(DECODER_B, 0);
-  delay(time);
-  int reading = get_LDR_avg_reading(5);
+  delay(RGB_TIME);
+  colour_array[1] = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
   Serial.print("Green: ");
-  Serial.println(reading);
+  Serial.println(colour_array[1]);
   delay(LDR_WAIT);
 }
 
-void shine_blue(int time) {
+void shine_blue() {
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 255);
-  delay(time);
-  int reading = get_LDR_avg_reading(5);
+  delay(RGB_TIME);
+  colour_array[2] = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
   Serial.print("Blue: ");
-  Serial.println(reading);
+  Serial.println(colour_array[2]);
   delay(LDR_WAIT);
 }
 
-void ir_read() {
+//1 Red
+//2 Green
+//3 Orange
+//4 Purple
+//5 Light Blue
+//6 White
+int identify_colour() {
+  int red = rgb_array[0];
+  int green = rgb_array[1];
+  int blue = rgb_array[2];
+
+  if (red > 199) {
+
+    if (green > 240) {
+      if (blue > 240) {
+        Serial.println("white");
+        return WHITE;
+      }
+    }
+
+    if (green < 125) {
+      Serial.println("red");
+      return RED;
+    }
+
+    if (green > 125) {
+      Serial.println("orange");
+      return ORANGE;
+    }
+  }
+
+  if (blue > 230) {
+    Serial.println("blue");
+    return LIGHT_BLUE;
+  }
+
+  if (red < 70) {
+    Serial.println("green");
+    return GREEN;
+  }
+
+  if (red > 70) {
+    Serial.println("purple");
+    return PURPLE;
+  }
+  delay(5000);
+
+  return identify_colour();
+}
+
+void colour_instruction(int colour) {
+  if (colour == RED) {
+    left_turn(TURNING_TIME);
+    return;
+  }
+
+  if (colour == GREEN) {
+    right_turn(TURNING_TIME);
+    return;
+  }
+
+  if (colour == ORANGE) {
+    rotate_back(TURNING_TIME);
+    return;
+  }
+
+  if (colour == PURPLE) {
+    left_turn_2_grid(TURNING_TIME, FORWARD_TIME);
+    return;
+  }
+
+  if (colour == LIGHT_BLUE) {
+    right_turn_2_grid(TURNING_TIME, FORWARD_TIME);
+    return;
+  }
+
+  if (colour == WHITE) {
+    //do something
+  }
+}
+
+//1 Red
+//2 Green
+//3 Orange
+//4 Purple
+//5 Light Blue
+//6 White
+void parse_colour() {
+  shine_red();
+  shine_green();
+  shine_blue();
+
+  for (int i = 0; i < 3; i += 1) {
+    long reading = ((colour_array[i] - black_array[i]) * 255) / diff_array[i];
+
+    if (reading < 0) {
+      reading = 0;
+    }
+    rgb_array[i] = reading;
+
+    Serial.print("array ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(rgb_array[i]);
+  }
+
+  int colour = identify_colour();
+  delay(500);
+  colour_instruction(colour);
+}
+
+int ir_read() {
 
   stop_motor();
   analogWrite(DECODER_A, 0);
@@ -243,44 +365,37 @@ void ir_read() {
 
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 255);
-
-
 }
 
 void setup() {
-
   delay(2000); // Do nothing for 10000 ms = 10 seconds
   Serial.begin(9600);
-  //  correct_path();
   pinMode(DECODER_A, OUTPUT);
   pinMode(DECODER_B, OUTPUT);
   pinMode(IR_RECEIVER_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 0);
-
+  led.setpin(13);
 }
 
 void loop() {
 
-  ir_read();
-  delay(500);
+  int sensor_state = lineFinder.readSensors();
+  Serial.println(sensor_state);
 
-  //                 int sensorState = lineFinder.readSensors();
-  //                 Serial.print("Sensor State: ");
-  //                 Serial.println(sensorState);
-  //
-  //  if (sensorState == 3) {
-  //  stop_motor();
-  //
-  //    shine_red(RGB_TIME);
-  //    shine_green(RGB_TIME);
-  //    shine_blue(RGB_TIME);
-  //    delay(500);
-  //  }
-  //
-  //  else {
-  //    go_forward();
-  //  }
+  if (sensor_state == 3) {
+    stop_motor();
+    delay(1000);
+    parse_colour();
+    delay(1000);
+    go_forward();
+    delay(1000);
+    stop_motor();
+  }
+
+  else {
+    go_forward();
+  }
 
 }
