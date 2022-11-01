@@ -1,5 +1,4 @@
 #include "MeMCore.h"
-#include <MeMCore.h>
 
 //Pin Definitions
 #define ULTRASONIC_PIN 12 //12 for port 1, 10 for port 2
@@ -10,8 +9,9 @@
 
 //Value Definitions
 #define SPEED_OF_SOUND 345
-#define TURNING_TIME 700 // The time duration (ms) for turning
-#define FORWARD_TIME 500
+#define TURNING_TIME 600 * (1.5) // The time duration (ms) for turning
+#define FORWARD_TIME 1500 * (1.5)
+#define CORRECT_TIME 40 * (1.5)
 #define LDR_WAIT 10
 #define IR_WAIT 15
 #define CORRECT_TIMES 2
@@ -32,15 +32,14 @@ MeLineFollower lineFinder(PORT_2);
 
 // Setting motor speed to an integer between 1 and 255
 // The larger the number, the faster the speed
-uint8_t motorSpeed = 255 / 2;
+uint8_t motorSpeed = 0; // (255 / 3) for actual speed
 int status = 0;
 
 long colour_array[3] = {0};
 
 //find lab values
-long black_array[] = {959, 800, 911};
-long white_array[] = {984, 964, 989};
-long diff_array[] = {25, 164, 78};
+long black_array[] = {923, 722, 819};
+long white_array[] = {968, 947, 971};
 long rgb_array[3] = {0};
 
 //credit to Dr Henry for this function
@@ -112,8 +111,8 @@ void left_turn_2_grid(int turn_time, int fwd_time) {
 }
 
 void rotate_back(int time) {
-  right_turn(time);
-  right_turn(time);
+  right_turn(time + 50);
+  right_turn(time + 50);
   stop_motor();
 }
 
@@ -136,7 +135,7 @@ void calibrate_speed_of_sound() {
   Serial.println(speed);
 }
 
-void endSong(){
+void endSong() {
 #define NOTE_B0  31
 #define NOTE_C1  33
 #define NOTE_CS1 35
@@ -228,25 +227,25 @@ void endSong(){
 #define NOTE_DS8 4978
 #define REST      0
 
-int tempo = 114;
+  int tempo = 114;
 
-int melody[] = {
+  int melody[] = {
 
-  NOTE_A4,16, NOTE_B4,16, NOTE_D5,16, NOTE_B4,16,
-  NOTE_FS5,-8, NOTE_FS5,-8, NOTE_E5,-4, NOTE_A4,16, NOTE_B4,16, NOTE_D5,16, NOTE_B4,16,
-  NOTE_A5,4, NOTE_CS5,8, NOTE_D5,-8, NOTE_CS5,16, NOTE_B4,8, NOTE_A4,16, NOTE_B4,16, NOTE_D5,16, NOTE_B4,16,
+    NOTE_A4, 16, NOTE_B4, 16, NOTE_D5, 16, NOTE_B4, 16,
+    NOTE_FS5, -8, NOTE_FS5, -8, NOTE_E5, -4, NOTE_A4, 16, NOTE_B4, 16, NOTE_D5, 16, NOTE_B4, 16,
+    NOTE_A5, 4, NOTE_CS5, 8, NOTE_D5, -8, NOTE_CS5, 16, NOTE_B4, 8, NOTE_A4, 16, NOTE_B4, 16, NOTE_D5, 16, NOTE_B4, 16,
 
-  NOTE_D5,4, NOTE_E5,8, NOTE_CS5,-8, NOTE_B4,16, NOTE_A4,4, NOTE_A4,8,  //23
-  NOTE_E5,4, NOTE_D5,2, REST,4,
+    NOTE_D5, 4, NOTE_E5, 8, NOTE_CS5, -8, NOTE_B4, 16, NOTE_A4, 4, NOTE_A4, 8, //23
+    NOTE_E5, 4, NOTE_D5, 2, REST, 4,
 
 
-};
+  };
 
-int notes = sizeof(melody) / sizeof(melody[0]) / 2;
+  int notes = sizeof(melody) / sizeof(melody[0]) / 2;
 
-int wholenote = (60000 * 4) / tempo;
+  int wholenote = (60000 * 4) / tempo;
 
-int divider = 0, noteDuration = 0;
+  int divider = 0, noteDuration = 0;
   for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
     divider = melody[thisNote + 1];
     if (divider > 0) {
@@ -255,9 +254,7 @@ int divider = 0, noteDuration = 0;
       noteDuration = (wholenote) / abs(divider);
       noteDuration *= 1.5;
     }
-    tone(buzzer, melody[thisNote], noteDuration * 0.9);
-    delay(noteDuration);
-    noTone(buzzer);
+    buzzer.tone(melody[thisNote], noteDuration);
   }
 }
 
@@ -269,51 +266,31 @@ float distance_left() {
   digitalWrite(ULTRASONIC_PIN, LOW);
 
   pinMode(ULTRASONIC_PIN, INPUT);
-  long duration = pulseIn(ULTRASONIC_PIN, HIGH);
+  long duration = pulseIn(ULTRASONIC_PIN, HIGH, 3000);
   float distance = (((float)SPEED_OF_SOUND * (float)duration / 10000.0) / 2.0) - 3.5;
   //  Serial.println(duration);
-  //  Serial.print("distance: ");
-  //  Serial.println(distance);
-  //  Serial.println("cm");
+  Serial.print("distance: ");
+  Serial.println(distance);
+  Serial.println("cm");
   delay(300);
   return distance;
 }
 
-void adjust_angle(float difference) {
+void adjust_angle() {
   float distance_1 = distance_left();
-  go_forward();
-  delay(250);
-  stop_motor();
-  float distance_2 = distance_left();
-
-  if (distance_2 > distance_1) {
-
-    while ((distance_2 - distance_1) > difference) {
-      left_turn(25);
-      stop_motor();
-      distance_2 = distance_left();
-    }
+  if (distance_1 > 15.5) {
+    return;
   }
 
-  else if (distance_2 < distance_1) {
-
-    while ((distance_1 - distance_2) > difference) {
-      right_turn(25);
-      stop_motor();
-      distance_2 = distance_left();
-    }
+  //using 8cm as the mid point
+  if (distance_1 > 9.0) {
+    left_turn(CORRECT_TIME);
+    stop_motor();
   }
-}
 
-void correct_path() {
-  if (distance_left() < 10) {
-
-    for (int i = 0; i < CORRECT_TIMES; i += 1) {
-
-      adjust_angle(0.00);
-      reverse(200);
-      delay(1000);
-    }
+  else if (distance_1 < 7.0) {
+    right_turn(CORRECT_TIME);
+    stop_motor();
   }
 }
 
@@ -366,30 +343,30 @@ int identify_colour() {
 
   if (red > 199) {
 
-    if (green > 240) {
-      if (blue > 240) {
+    if (green > 200) {
+      if (blue > 200) {
         Serial.println("white");
         return WHITE;
       }
     }
 
-    if (green < 125) {
+    if (green < 130) {
       Serial.println("red");
       return RED;
     }
 
-    if (green > 125) {
+    if (green > 130) {
       Serial.println("orange");
       return ORANGE;
     }
   }
 
-  if (blue > 230) {
+  if (blue > 200) {
     Serial.println("blue");
     return LIGHT_BLUE;
   }
 
-  if (red < 70) {
+  if (red < 130) {
     Serial.println("green");
     return GREEN;
   }
@@ -430,7 +407,6 @@ void colour_instruction(int colour) {
   }
 
   if (colour == WHITE) {
-    //do something
   }
 }
 
@@ -446,7 +422,8 @@ void parse_colour() {
   shine_blue();
 
   for (int i = 0; i < 3; i += 1) {
-    long reading = ((colour_array[i] - black_array[i]) * 255) / diff_array[i];
+    long reading = ((colour_array[i] - black_array[i]) * 255) / (white_array[i] - black_array[i]);
+    Serial.println(reading);
 
     if (reading < 0) {
       reading = 0;
@@ -459,9 +436,10 @@ void parse_colour() {
     Serial.println(rgb_array[i]);
   }
 
+  led.setColor(rgb_array[0], rgb_array[1], rgb_array[2]);
+  led.show();
   int colour = identify_colour();
-  delay(500);
-  //  colour_instruction(colour);
+  colour_instruction(colour);
 }
 
 int ir_read() {
@@ -494,20 +472,15 @@ int ir_read() {
 
 void travel() {
   int sensor_state = lineFinder.readSensors();
-  Serial.println(sensor_state);
 
   if (sensor_state != 3) {
     stop_motor();
-    delay(1000);
-    //parse_colour();
-    delay(1000);
-    //go_forward();
-    delay(1000);
-    stop_motor();
+    parse_colour();
   }
 
   else {
     go_forward();
+    adjust_angle();
 
   }
 }
@@ -522,9 +495,9 @@ void setup() {
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 0);
   led.setpin(13);
+  //  endSong();
 }
 
 void loop() {
   travel();
-
 }
