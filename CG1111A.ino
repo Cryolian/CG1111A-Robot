@@ -9,9 +9,9 @@
 
 //Value Definitions
 #define SPEED_OF_SOUND 345
-#define TURNING_TIME 600 * (1.5) // The time duration (ms) for turning
-#define FORWARD_TIME 1500 * (1.5)
-#define CORRECT_TIME 40 * (1.5)
+#define TURNING_TIME 800 // The time duration (ms) for turning
+#define FORWARD_TIME 1800
+#define CORRECT_TIME 55 
 #define LDR_WAIT 10
 #define IR_WAIT 15
 #define CORRECT_TIMES 2
@@ -32,14 +32,14 @@ MeLineFollower lineFinder(PORT_2);
 
 // Setting motor speed to an integer between 1 and 255
 // The larger the number, the faster the speed
-uint8_t motorSpeed = 0; // (255 / 3) for actual speed
+uint8_t motorSpeed = 100; // (255 / 3) for actual speed
 int status = 0;
 
 long colour_array[3] = {0};
 
 //find lab values
-long black_array[] = {923, 722, 819};
-long white_array[] = {968, 947, 971};
+long black_array[] = {930, 768, 855};
+long white_array[] = {974, 955, 973};
 long rgb_array[3] = {0};
 
 //credit to Dr Henry for this function
@@ -94,12 +94,10 @@ void left_turn(int time) {
 
 void right_turn_2_grid(int turn_time, int fwd_time) {
   right_turn(turn_time);
-  stop_motor();
   go_forward();
   delay(fwd_time);
   stop_motor();
   right_turn(turn_time);
-  stop_motor();
 }
 
 void left_turn_2_grid(int turn_time, int fwd_time) {
@@ -119,18 +117,15 @@ void rotate_back(int time) {
 void calibrate_speed_of_sound() {
   float speed;
   Serial.println("Place object 10 cm away from sensor");
-
   delay(2000);
   digitalWrite(ULTRASONIC_PIN, LOW);
   delayMicroseconds(2);
   digitalWrite(ULTRASONIC_PIN, HIGH);
   delayMicroseconds(100);
   digitalWrite(ULTRASONIC_PIN, LOW);
-
   pinMode(ULTRASONIC_PIN, INPUT);
   long duration = pulseIn(ULTRASONIC_PIN, HIGH);
   Serial.println(duration);
-
   speed = ((10.0 * 2 * 10000.0) / ((float)duration ));
   Serial.println(speed);
 }
@@ -269,10 +264,13 @@ float distance_left() {
   long duration = pulseIn(ULTRASONIC_PIN, HIGH, 3000);
   float distance = (((float)SPEED_OF_SOUND * (float)duration / 10000.0) / 2.0) - 3.5;
   //  Serial.println(duration);
-  Serial.print("distance: ");
-  Serial.println(distance);
-  Serial.println("cm");
+//  Serial.print("distance: ");
+//  Serial.println(distance);
+//  Serial.println("cm");
   delay(300);
+  if (distance < 0) {
+    return 100;
+  }
   return distance;
 }
 
@@ -281,14 +279,24 @@ void adjust_angle() {
   if (distance_1 > 15.5) {
     return;
   }
+  //
+  //  if (distance_1 < 5) {
+  //    right_turn(TURNING_TIME / 2);
+  //    stop_motor();
+  //  }
+  //
+  //  else if (distance_1 > 11) {
+  //    left_turn(TURNING_TIME / 2);
+  //    stop_motor();
+  //  }
 
   //using 8cm as the mid point
-  if (distance_1 > 9.0) {
+  if (distance_1 > 8.5) {
     left_turn(CORRECT_TIME);
     stop_motor();
   }
 
-  else if (distance_1 < 7.0) {
+  else if (distance_1 < 6.5) {
     right_turn(CORRECT_TIME);
     stop_motor();
   }
@@ -350,7 +358,7 @@ int identify_colour() {
       }
     }
 
-    if (green < 130) {
+    if (green < 150) {
       Serial.println("red");
       return RED;
     }
@@ -361,17 +369,17 @@ int identify_colour() {
     }
   }
 
-  if (blue > 200) {
+  if (blue > 220) {
     Serial.println("blue");
     return LIGHT_BLUE;
   }
 
-  if (red < 130) {
+  if (blue < 130) {
     Serial.println("green");
     return GREEN;
   }
 
-  if (red > 70) {
+  if (blue > 70) {
     Serial.println("purple");
     return PURPLE;
   }
@@ -481,8 +489,8 @@ void travel() {
   else {
     go_forward();
     adjust_angle();
-
   }
+
 }
 
 void setup() {
