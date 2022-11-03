@@ -11,10 +11,9 @@
 #define SPEED_OF_SOUND 345
 #define TURNING_TIME 800 // The time duration (ms) for turning
 #define FORWARD_TIME 1800
-#define CORRECT_TIME 55 
+#define CORRECT_TIME 55
 #define LDR_WAIT 10
 #define IR_WAIT 15
-#define CORRECT_TIMES 2
 #define RGB_TIME 200
 #define BASELINE_AMBIENT_IR 950
 #define RED 1
@@ -109,25 +108,11 @@ void left_turn_2_grid(int turn_time, int fwd_time) {
 }
 
 void rotate_back(int time) {
-  right_turn(time + 50);
-  right_turn(time + 50);
+  right_turn(time / 2 + 12);
+  reverse(100);
+  right_turn(time / 2 + 12);
+  right_turn(time + 25);
   stop_motor();
-}
-
-void calibrate_speed_of_sound() {
-  float speed;
-  Serial.println("Place object 10 cm away from sensor");
-  delay(2000);
-  digitalWrite(ULTRASONIC_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(ULTRASONIC_PIN, HIGH);
-  delayMicroseconds(100);
-  digitalWrite(ULTRASONIC_PIN, LOW);
-  pinMode(ULTRASONIC_PIN, INPUT);
-  long duration = pulseIn(ULTRASONIC_PIN, HIGH);
-  Serial.println(duration);
-  speed = ((10.0 * 2 * 10000.0) / ((float)duration ));
-  Serial.println(speed);
 }
 
 void endSong() {
@@ -264,41 +249,38 @@ float distance_left() {
   long duration = pulseIn(ULTRASONIC_PIN, HIGH, 3000);
   float distance = (((float)SPEED_OF_SOUND * (float)duration / 10000.0) / 2.0) - 3.5;
   //  Serial.println(duration);
-//  Serial.print("distance: ");
-//  Serial.println(distance);
-//  Serial.println("cm");
+  //  Serial.print("distance: ");
+  //  Serial.println(distance);
+  //  Serial.println("cm");
   delay(300);
-  if (distance < 0) {
-    return 100;
-  }
   return distance;
 }
 
 void adjust_angle() {
-  float distance_1 = distance_left();
-  if (distance_1 > 15.5) {
+  float distance = distance_left();
+  if (distance > 15.5 || distance < 0) {
     return;
   }
-  //
-  //  if (distance_1 < 5) {
-  //    right_turn(TURNING_TIME / 2);
-  //    stop_motor();
-  //  }
-  //
-  //  else if (distance_1 > 11) {
-  //    left_turn(TURNING_TIME / 2);
-  //    stop_motor();
-  //  }
 
-  //using 8cm as the mid point
-  if (distance_1 > 8.5) {
-    left_turn(CORRECT_TIME);
-    stop_motor();
+  if (distance < 4) {
+    right_turn(2 * CORRECT_TIME);
+    return;
   }
 
-  else if (distance_1 < 6.5) {
+  if (distance > 11) {
+    left_turn(2 * CORRECT_TIME);
+    return;
+  }
+
+  //using 7.5cm as the mid point
+  if (distance > 8.5) {
+    left_turn(CORRECT_TIME);
+    return;
+  }
+
+  if (distance < 6.5) {
     right_turn(CORRECT_TIME);
-    stop_motor();
+    return;
   }
 }
 
@@ -309,8 +291,8 @@ void shine_red() {
   colour_array[0] = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
-  Serial.print("Red: ");
-  Serial.println(colour_array[0]);
+  //  Serial.print("Red: ");
+  //  Serial.println(colour_array[0]);
   delay(LDR_WAIT);
 }
 
@@ -321,8 +303,8 @@ void shine_green() {
   colour_array[1] = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
-  Serial.print("Green: ");
-  Serial.println(colour_array[1]);
+  //  Serial.print("Green: ");
+  //  Serial.println(colour_array[1]);
   delay(LDR_WAIT);
 }
 
@@ -333,8 +315,8 @@ void shine_blue() {
   colour_array[2] = get_LDR_avg_reading(5);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
-  Serial.print("Blue: ");
-  Serial.println(colour_array[2]);
+  //  Serial.print("Blue: ");
+  //  Serial.println(colour_array[2]);
   delay(LDR_WAIT);
 }
 
@@ -353,34 +335,34 @@ int identify_colour() {
 
     if (green > 200) {
       if (blue > 200) {
-        Serial.println("white");
+        //        Serial.println("white");
         return WHITE;
       }
     }
 
     if (green < 150) {
-      Serial.println("red");
+      //      Serial.println("red");
       return RED;
     }
 
     if (green > 130) {
-      Serial.println("orange");
+      //      Serial.println("orange");
       return ORANGE;
     }
   }
 
   if (blue > 220) {
-    Serial.println("blue");
+    //    Serial.println("blue");
     return LIGHT_BLUE;
   }
 
   if (blue < 130) {
-    Serial.println("green");
+    //    Serial.println("green");
     return GREEN;
   }
 
   if (blue > 70) {
-    Serial.println("purple");
+    //    Serial.println("purple");
     return PURPLE;
   }
   delay(5000);
@@ -395,7 +377,7 @@ void colour_instruction(int colour) {
   }
 
   if (colour == GREEN) {
-    right_turn(TURNING_TIME);
+    right_turn(TURNING_TIME + 55);
     return;
   }
 
@@ -415,6 +397,7 @@ void colour_instruction(int colour) {
   }
 
   if (colour == WHITE) {
+    endSong();
   }
 }
 
@@ -431,17 +414,17 @@ void parse_colour() {
 
   for (int i = 0; i < 3; i += 1) {
     long reading = ((colour_array[i] - black_array[i]) * 255) / (white_array[i] - black_array[i]);
-    Serial.println(reading);
+    //    Serial.println(reading);
 
     if (reading < 0) {
       reading = 0;
     }
     rgb_array[i] = reading;
-
-    Serial.print("array ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.println(rgb_array[i]);
+    //
+    //    Serial.print("array ");
+    //    Serial.print(i);
+    //    Serial.print(": ");
+    //    Serial.println(rgb_array[i]);
   }
 
   led.setColor(rgb_array[0], rgb_array[1], rgb_array[2]);
@@ -478,21 +461,6 @@ int ir_read() {
   analogWrite(DECODER_B, 255);
 }
 
-void travel() {
-  int sensor_state = lineFinder.readSensors();
-
-  if (sensor_state != 3) {
-    stop_motor();
-    parse_colour();
-  }
-
-  else {
-    go_forward();
-    adjust_angle();
-  }
-
-}
-
 void setup() {
   delay(2000); // Do nothing for 10000 ms = 10 seconds
   Serial.begin(9600);
@@ -507,5 +475,14 @@ void setup() {
 }
 
 void loop() {
-  travel();
+  int sensor_state = lineFinder.readSensors();
+
+  if (sensor_state != 3) {
+    stop_motor();
+    parse_colour();
+    return;
+  }
+
+  go_forward();
+  adjust_angle();
 }
