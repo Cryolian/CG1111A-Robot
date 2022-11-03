@@ -15,7 +15,6 @@
 #define LDR_WAIT 10
 #define IR_WAIT 15
 #define RGB_TIME 200
-#define BASELINE_AMBIENT_IR 950
 #define RED 1
 #define GREEN 2
 #define ORANGE 3
@@ -29,19 +28,21 @@ MeDCMotor rightMotor(M2); // assigning RightMotor to port M2
 MeRGBLed led(0, 30); // Based on hardware connections on mCore; cannot change
 MeLineFollower lineFinder(PORT_2);
 
-// Setting motor speed to an integer between 1 and 255
-// The larger the number, the faster the speed
-uint8_t motorSpeed = 100; // (255 / 3) for actual speed
+uint8_t motorSpeed = 100; //best value from experimentation. Faster speeds made stopping at the black lines unreliable.
 int status = 0;
 
-long colour_array[3] = {0};
-
-//find lab values
-long black_array[] = {930, 768, 855};
-long white_array[] = {974, 955, 973};
+//Lab values for Colour and IR
+long black_array[] = {930, 768, 855}; //lab readings for black paper
+long white_array[] = {974, 955, 973}; //lab readings for white paper
 long rgb_array[3] = {0};
+long colour_array[3] = {0};
+//storing ambient IR reading - distance IR cutoff readings
+long ir_array[7] = {50, 150, 289, 340, 370, 384, 400}; //lab readings for drops in voltages (upper boundaries)
 
-//credit to Dr Henry for this function
+/**
+ * Takes in a given number of readings at
+ * the LDR pin, and returns the average.
+ */
 long get_LDR_avg_reading(int times) {
   long total = 0;
   for (int i = 0; i < times; i += 1) {
@@ -51,6 +52,10 @@ long get_LDR_avg_reading(int times) {
   return total / times;
 }
 
+/**
+ * Takes in a given number of readings
+ * at the IR pin, and returns the average.
+ */
 long get_IR_avg_reading(int times) {
   long total = 0;
   for (int i = 0; i < times; i += 1) {
@@ -60,16 +65,26 @@ long get_IR_avg_reading(int times) {
   return total / times;
 }
 
+/**
+ * Stops the motors.
+ */
 void stop_motor() {
   leftMotor.stop();
   rightMotor.stop();
 }
 
+/**
+ * Makes the robot goes forward.
+ */
 void go_forward() {
   leftMotor.run(-motorSpeed);
   rightMotor.run(motorSpeed);
 }
 
+/**
+ * Moves the robot backwards by a given time.
+ * Stops the motors afterwards.
+ */
 void reverse(int time) {
   leftMotor.run(motorSpeed);
   rightMotor.run(-motorSpeed);
@@ -77,6 +92,10 @@ void reverse(int time) {
   stop_motor();
 }
 
+/**
+ * Turns the robot right by a given time.
+ * Stops the motors afterwards.
+ */
 void right_turn(int time) {
   leftMotor.run(-motorSpeed);
   rightMotor.run(-motorSpeed);
@@ -84,6 +103,10 @@ void right_turn(int time) {
   stop_motor();
 }
 
+/**
+ * Turns the robot left by a given time.
+ * Stops the motors afterwards.
+ */
 void left_turn(int time) {
   leftMotor.run(motorSpeed);
   rightMotor.run(motorSpeed);
@@ -91,6 +114,12 @@ void left_turn(int time) {
   stop_motor();
 }
 
+/*
+ * Turns the robot right by a given time,
+ * moves it forward by a given time,
+ * and turns it right again.
+ * Stops the motors afterwards.
+ */
 void right_turn_2_grid(int turn_time, int fwd_time) {
   right_turn(turn_time);
   go_forward();
@@ -99,6 +128,12 @@ void right_turn_2_grid(int turn_time, int fwd_time) {
   right_turn(turn_time);
 }
 
+/*
+ * Turns the robot left by a given time,
+ * moves it forward by a given time,
+ * and turns it left again.
+ * Stops the motors afterwards.
+ */
 void left_turn_2_grid(int turn_time, int fwd_time) {
   left_turn(turn_time);
   go_forward();
@@ -107,6 +142,11 @@ void left_turn_2_grid(int turn_time, int fwd_time) {
   left_turn(turn_time);
 }
 
+/**
+ * Turns the robot clockwise by twice the given time,
+ * meant to be a U-turn
+ * Stops the motors afterwards.
+ */
 void rotate_back(int time) {
   right_turn(time / 2 + 12);
   reverse(100);
@@ -115,6 +155,10 @@ void rotate_back(int time) {
   stop_motor();
 }
 
+/**
+ * Victory song
+ * Never Gonna Give You Up - Rick Astley
+ */
 void endSong() {
 #define NOTE_B0  31
 #define NOTE_C1  33
@@ -218,7 +262,6 @@ void endSong() {
     NOTE_D5, 4, NOTE_E5, 8, NOTE_CS5, -8, NOTE_B4, 16, NOTE_A4, 4, NOTE_A4, 8, //23
     NOTE_E5, 4, NOTE_D5, 2, REST, 4,
 
-
   };
 
   int notes = sizeof(melody) / sizeof(melody[0]) / 2;
@@ -238,6 +281,10 @@ void endSong() {
   }
 }
 
+/**
+ * Takes in a reading from the ultrasonic sensor,
+ * and returns the calculated distance from the left side.
+ */
 float distance_left() {
   digitalWrite(ULTRASONIC_PIN, LOW);
   delayMicroseconds(2);
@@ -256,6 +303,12 @@ float distance_left() {
   return distance;
 }
 
+/**
+ * Function responsible for path correction
+ * based on the ultrasonic sensor. If the distance
+ * is too close or too far from the left wall, the correction
+ * angle is doubled. If no wall is detected, the bot continues straight.
+ */
 void adjust_angle() {
   float distance = distance_left();
   if (distance > 15.5 || distance < 0) {
@@ -284,6 +337,10 @@ void adjust_angle() {
   }
 }
 
+/**
+ * Takes in a voltage reading when the red LED
+ * is shone, and stores it in colour_array
+ */
 void shine_red() {
   analogWrite(DECODER_A, 255);
   analogWrite(DECODER_B, 255);
@@ -296,6 +353,10 @@ void shine_red() {
   delay(LDR_WAIT);
 }
 
+/**
+ * Takes in a voltage reading when the green LED
+ * is shone, and stores it in colour_array
+ */
 void shine_green() {
   analogWrite(DECODER_A, 255);
   analogWrite(DECODER_B, 0);
@@ -308,6 +369,10 @@ void shine_green() {
   delay(LDR_WAIT);
 }
 
+/**
+ * Takes in a voltage reading when the blue LED
+ * is shone, and stores it in colour_array
+ */
 void shine_blue() {
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 255);
@@ -320,6 +385,11 @@ void shine_blue() {
   delay(LDR_WAIT);
 }
 
+/**
+ * Identifies the colour given by the RGB values calculated
+ * in rgb_array. Colours are sorted based on experimental
+ * values.
+ */
 //1 Red
 //2 Green
 //3 Orange
@@ -365,11 +435,17 @@ int identify_colour() {
     //    Serial.println("purple");
     return PURPLE;
   }
-  delay(5000);
 
+  delay(5000);
   return identify_colour();
 }
 
+/**
+ * Given a colour, execute the movement instruction corresponding
+ * to the colours. Manual number additions are experimental values
+ * as one motor was turning less than the other in some turning
+ * scenarios.
+ */
 void colour_instruction(int colour) {
   if (colour == RED) {
     left_turn(TURNING_TIME);
@@ -398,9 +474,14 @@ void colour_instruction(int colour) {
 
   if (colour == WHITE) {
     endSong();
+    return;
   }
 }
 
+/**
+ * Reads in the colour at the bottom of the robot, and executes the 
+ * corresponding instruction given to the colour.
+ */
 //1 Red
 //2 Green
 //3 Orange
@@ -427,42 +508,46 @@ void parse_colour() {
     //    Serial.println(rgb_array[i]);
   }
 
-  led.setColor(rgb_array[0], rgb_array[1], rgb_array[2]);
-  led.show();
   int colour = identify_colour();
   colour_instruction(colour);
 }
 
+/*
+ * Takes the drop in voltage reading at the IR sensor,
+ * checks against a lookup table for the rough distance
+ * values, and returns the distance.
+ */
 int ir_read() {
 
   stop_motor();
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 255);
-
   delay(IR_WAIT);
-
   int ambient = analogRead(IR_RECEIVER_PIN);
-  Serial.print("ambient: ");
-  Serial.println(ambient);
-
+  //  Serial.print("ambient: ");
+  //  Serial.println(ambient);
   analogWrite(DECODER_A, LOW);
   analogWrite(DECODER_B, LOW);
-
   delay(IR_WAIT);
-
   int reading = analogRead(IR_RECEIVER_PIN);
-  Serial.print("reading: ");
-  Serial.println(reading);
-
-  Serial.print("difference: ");
-  Serial.println(ambient - reading);
-
+  //  Serial.print("reading: ");
+  //  Serial.println(reading);
+  //  Serial.print("difference: ");
+  //  Serial.println(ambient - reading);
+  int difference = ambient - reading;
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 255);
+
+  for (int i = 0; i < 7; i += 1) {
+    if (difference > ir_array[i]) {
+      return i - 1;
+    }
+  }
+  return 8;
 }
 
 void setup() {
-  delay(2000); // Do nothing for 10000 ms = 10 seconds
+  delay(2000); 
   Serial.begin(9600);
   pinMode(DECODER_A, OUTPUT);
   pinMode(DECODER_B, OUTPUT);
@@ -471,12 +556,15 @@ void setup() {
   analogWrite(DECODER_A, 0);
   analogWrite(DECODER_B, 0);
   led.setpin(13);
-  //  endSong();
 }
 
 void loop() {
+
+  //checks for black line
   int sensor_state = lineFinder.readSensors();
 
+  //S1_*_S2_* did not work in our code,
+  //resorted to using the base values of 0 - 3
   if (sensor_state != 3) {
     stop_motor();
     parse_colour();
